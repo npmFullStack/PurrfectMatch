@@ -1,0 +1,26 @@
+@font-face {
+  font-family: 'Vina Sans';
+  src: url('./assets/fonts/vina-sans.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply font-sans; 
+  }
+}
