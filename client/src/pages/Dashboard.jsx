@@ -1,213 +1,225 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LogOut, User as UserIcon, Mail, Phone } from "lucide-react";
+import { useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
+import { 
+    PawPrint, 
+    Heart, 
+    Users, 
+    BarChart3, 
+    TrendingUp, 
+    Calendar,
+    Bell,
+    MessageSquare,
+    Shield,
+    Activity
+} from "lucide-react";
 import Button from "@/components/common/Button";
 
 const Dashboard = () => {
-    const [user, setUser] = useState(null);
-    const navigate = useNavigate();
+    const { user } = useOutletContext();
 
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-        const storedUser = localStorage.getItem("user");
-        
-        if (!token || !storedUser) {
-            navigate("/login");
-            return;
+    // Stats data
+    const stats = [
+        {
+            title: "Total Pets",
+            value: "1,247",
+            change: "+12%",
+            icon: <PawPrint className="h-5 w-5" />,
+            color: "bg-blue-100 text-blue-600",
+            trend: "up"
+        },
+        {
+            title: "Adoptions",
+            value: "892",
+            change: "+8%",
+            icon: <Heart className="h-5 w-5" />,
+            color: "bg-pink-100 text-pink-600",
+            trend: "up"
+        },
+        {
+            title: "Active Users",
+            value: "5,421",
+            change: "+23%",
+            icon: <Users className="h-5 w-5" />,
+            color: "bg-green-100 text-green-600",
+            trend: "up"
+        },
+        {
+            title: "Success Rate",
+            value: "98.2%",
+            change: "+0.5%",
+            icon: <TrendingUp className="h-5 w-5" />,
+            color: "bg-purple-100 text-purple-600",
+            trend: "up"
         }
+    ];
 
-        try {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-        } catch (error) {
-            console.error("Error parsing user data:", error);
-            navigate("/login");
+    // Quick actions
+    const quickActions = [
+        {
+            title: "Add New Pet",
+            description: "Register a new pet for adoption",
+            icon: <PawPrint className="h-5 w-5" />,
+            color: "bg-blue-500",
+            to: "/dashboard/pets/new"
+        },
+        {
+            title: "View Calendar",
+            description: "Check adoption appointments",
+            icon: <Calendar className="h-5 w-5" />,
+            color: "bg-green-500",
+            to: "/dashboard/calendar"
+        },
+        {
+            title: "Messages",
+            description: "12 unread messages",
+            icon: <MessageSquare className="h-5 w-5" />,
+            color: "bg-yellow-500",
+            to: "/dashboard/messages"
+        },
+        {
+            title: "Analytics",
+            description: "View detailed reports",
+            icon: <BarChart3 className="h-5 w-5" />,
+            color: "bg-purple-500",
+            to: "/dashboard/analytics"
         }
-    }, [navigate]);
-
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        navigate("/login");
-    };
-
-    if (!user) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading...</p>
-                </div>
-            </div>
-        );
-    }
+    ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            {/* Navigation */}
-            <nav className="bg-white shadow-sm">
-                <div className="container mx-auto px-4 py-4">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 bg-primary rounded-lg"></div>
-                            <h1 className="text-xl font-bold text-gray-900">PurrfectMatch</h1>
-                        </div>
+        <div className="space-y-6">
+            {/* Welcome Section */}
+            <div className="bg-gradient-to-r from-primary to-pink-600 rounded-2xl p-6 text-white">
+                <div className="flex flex-col md:flex-row md:items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">
+                            Welcome back, {user.first_name || user.email.split('@')[0]}!
+                        </h1>
+                        <p className="opacity-90">
+                            Here's what's happening with your pet adoption platform today.
+                        </p>
+                    </div>
+                    <div className="mt-4 md:mt-0">
                         <Button
                             variant="ghost"
-                            size="sm"
-                            leftIcon={<LogOut className="h-4 w-4" />}
-                            onClick={handleLogout}
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
                         >
-                            Logout
+                            <Activity className="h-4 w-4 mr-2" />
+                            View Analytics
                         </Button>
                     </div>
                 </div>
-            </nav>
+            </div>
 
-            {/* Dashboard Content */}
-            <main className="container mx-auto px-4 py-8">
-                <div className="max-w-4xl mx-auto">
-                    {/* Welcome Section */}
-                    <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                                    Welcome back, {user.first_name || user.email}!
-                                </h1>
-                                <p className="text-gray-600">
-                                    Manage your pet adoption journey from your dashboard
-                                </p>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {stats.map((stat, index) => (
+                    <div key={index} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className={`p-2 rounded-lg ${stat.color}`}>
+                                {stat.icon}
                             </div>
-                            <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center">
-                                <UserIcon className="h-8 w-8 text-primary" />
-                            </div>
+                            <span className={`text-sm font-medium ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                                {stat.change}
+                            </span>
                         </div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                            {stat.value}
+                        </h3>
+                        <p className="text-gray-600 text-sm">
+                            {stat.title}
+                        </p>
                     </div>
+                ))}
+            </div>
 
-                    {/* User Info Card */}
-                    <div className="bg-white rounded-2xl shadow-lg p-6">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                            <UserIcon className="h-6 w-6 text-primary" />
-                            Your Profile
-                        </h2>
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {quickActions.map((action, index) => (
+                        <Button
+                            key={index}
+                            to={action.to}
+                            variant="ghost"
+                            className="h-auto p-4 border border-gray-200 hover:border-primary/30 hover:bg-primary/5 flex flex-col items-start text-left"
+                        >
+                            <div className={`p-2 rounded-lg ${action.color} mb-3`}>
+                                {action.icon}
+                            </div>
+                            <h4 className="font-semibold text-gray-900 mb-1">
+                                {action.title}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                                {action.description}
+                            </p>
+                        </Button>
+                    ))}
+                </div>
+            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Email Info */}
-                            <div className="bg-gray-50 rounded-xl p-4">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <Mail className="h-5 w-5 text-blue-600" />
+            {/* Recent Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Recent Adoptions</h2>
+                        <Button variant="ghost" size="sm">
+                            View All
+                        </Button>
+                    </div>
+                    <div className="space-y-4">
+                        {[
+                            { name: "Max", type: "Golden Retriever", time: "2 hours ago" },
+                            { name: "Luna", type: "Siamese Cat", time: "4 hours ago" },
+                            { name: "Rocky", type: "German Shepherd", time: "1 day ago" },
+                            { name: "Bella", type: "Persian Cat", time: "2 days ago" },
+                        ].map((pet, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                        <PawPrint className="h-5 w-5 text-primary" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-500">Email Address</p>
-                                        <p className="font-medium text-gray-900">{user.email}</p>
+                                        <p className="font-medium text-gray-900">{pet.name}</p>
+                                        <p className="text-sm text-gray-500">{pet.type}</p>
                                     </div>
                                 </div>
+                                <span className="text-sm text-gray-500">{pet.time}</span>
                             </div>
-
-                            {/* Phone Info */}
-                            {user.phone && (
-                                <div className="bg-gray-50 rounded-xl p-4">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                            <Phone className="h-5 w-5 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">Phone Number</p>
-                                            <p className="font-medium text-gray-900">{user.phone}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Name Info */}
-                            <div className="bg-gray-50 rounded-xl p-4">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                                        <UserIcon className="h-5 w-5 text-purple-600" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-gray-500">Full Name</p>
-                                        <p className="font-medium text-gray-900">
-                                            {user.first_name || user.last_name 
-                                                ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                                                : 'Not set'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Username Info */}
-                            {user.username && (
-                                <div className="bg-gray-50 rounded-xl p-4">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="h-10 w-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                            <UserIcon className="h-5 w-5 text-yellow-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">Username</p>
-                                            <p className="font-medium text-gray-900">{user.username}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Additional Info */}
-                        <div className="mt-8 pt-6 border-t border-gray-200">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="text-center">
-                                    <p className="text-sm text-gray-500">Member Since</p>
-                                    <p className="font-medium">
-                                        {user.created_at 
-                                            ? new Date(user.created_at).toLocaleDateString() 
-                                            : 'Recent'}
-                                    </p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm text-gray-500">Account Type</p>
-                                    <p className="font-medium">
-                                        {user.google_id ? 'Google' : 
-                                         user.facebook_id ? 'Facebook' : 
-                                         'Email'}
-                                    </p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm text-gray-500">Status</p>
-                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                        Active
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="mt-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Button variant="outline" className="h-24 flex flex-col items-center justify-center">
-                                <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center mb-2">
-                                    <UserIcon className="h-5 w-5 text-primary" />
-                                </div>
-                                <span>Edit Profile</span>
-                            </Button>
-                            <Button variant="outline" className="h-24 flex flex-col items-center justify-center">
-                                <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center mb-2">
-                                    <Mail className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <span>Preferences</span>
-                            </Button>
-                            <Button variant="outline" className="h-24 flex flex-col items-center justify-center">
-                                <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center mb-2">
-                                    <Phone className="h-5 w-5 text-green-600" />
-                                </div>
-                                <span>Notifications</span>
-                            </Button>
-                        </div>
+                        ))}
                     </div>
                 </div>
-            </main>
+
+                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">System Status</h2>
+                        <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm text-green-600 font-medium">All Systems Operational</span>
+                        </div>
+                    </div>
+                    <div className="space-y-4">
+                        {[
+                            { name: "API Server", status: "Operational", uptime: "99.9%" },
+                            { name: "Database", status: "Operational", uptime: "99.8%" },
+                            { name: "File Storage", status: "Operational", uptime: "99.7%" },
+                            { name: "Email Service", status: "Operational", uptime: "99.5%" },
+                        ].map((service, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <div className={`h-2 w-2 rounded-full ${
+                                        service.status === 'Operational' ? 'bg-green-500' : 'bg-red-500'
+                                    }`}></div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">{service.name}</p>
+                                        <p className="text-sm text-gray-500">{service.status}</p>
+                                    </div>
+                                </div>
+                                <span className="text-sm font-medium text-gray-900">{service.uptime}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

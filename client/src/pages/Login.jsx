@@ -59,7 +59,7 @@ const Login = () => {
                 );
 
                 // Redirect to home or dashboard
-                navigate("/");
+                navigate("/dashboard");
             } else {
                 setError(response.data.message || "Login failed");
             }
