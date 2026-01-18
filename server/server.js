@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import session from "express-session";
 import passport from "passport";
+import fileUpload from 'express-fileupload';
 import authRoutes from "./authRoutes.js";
 
 dotenv.config();
@@ -20,6 +21,14 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// File upload middleware
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: '/tmp/',
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  abortOnLimit: true,
+}));
 
 // Session configuration (required for Passport)
 app.use(session({

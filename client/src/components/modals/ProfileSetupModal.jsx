@@ -60,7 +60,7 @@ const ProfileSetupModal = ({ isOpen, onClose, onComplete, user }) => {
       }
 
       setCustomAvatar(file);
-      setSelectedAvatar(null);
+      setSelectedAvatar("");
       
       // Create preview
       const reader = new FileReader();
@@ -125,10 +125,11 @@ const ProfileSetupModal = ({ isOpen, onClose, onComplete, user }) => {
       const updatedUser = {
         ...currentUser,
         username: username.trim(),
-        avatar: data.avatar || selectedAvatar || 'avatarDefault.png',
-        profile_setup_completed: true
+        avatar_url: data.user?.avatar_url || selectedAvatar || 'avatarDefault.png',
+        avatar: data.user?.avatar_url || selectedAvatar || 'avatarDefault.png', // For backward compatibility
       };
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      localStorage.setItem('token', data.token);
 
       // Trigger parent callback
       onComplete(updatedUser);
@@ -162,164 +163,169 @@ const ProfileSetupModal = ({ isOpen, onClose, onComplete, user }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Remove pinkish bg - use transparent backdrop */}
       <div 
-        className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      <div 
+        className="relative bg-white rounded-xl w-full max-w-md shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Complete Your Profile</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Set up your username and avatar to get started
+            <h2 className="text-lg font-semibold text-gray-900">Complete Your Profile</h2>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Set up your username and avatar
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
             aria-label="Close"
           >
-            <X className="h-5 w-5 text-gray-600" />
+            <X className="h-4 w-4 text-gray-600" />
           </button>
         </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Avatar Section */}
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-gray-900">
-              Choose Your Avatar
-            </label>
-            
-            {/* Current Avatar Preview */}
-            <div className="flex flex-col items-center">
-              <div className="relative mb-3">
-                <div className="h-32 w-32 rounded-full bg-gradient-to-br from-primary/20 to-pink-500/20 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                  {customAvatarPreview ? (
-                    <img 
-                      src={customAvatarPreview} 
-                      alt="Avatar Preview" 
-                      className="h-full w-full object-cover"
-                    />
-                  ) : selectedAvatar ? (
-                    <img 
-                      src={`/assets/images/avatar/${selectedAvatar}`}
-                      alt="Selected Avatar"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <ImageIcon className="h-12 w-12 text-primary" />
-                  )}
-                </div>
-                
-                {/* Upload Button */}
-                <label className="absolute bottom-0 right-0 h-10 w-10 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors shadow-lg">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleCustomAvatarUpload}
-                    className="hidden"
-                  />
-                  <Upload className="h-5 w-5 text-white" />
-                </label>
-              </div>
+        {/* Content - Compact layout */}
+        <form onSubmit={handleSubmit} className="p-4">
+          <div className="flex gap-4">
+            {/* Left: Avatar Section (smaller) */}
+            <div className="w-32 space-y-3">
+              <label className="block text-xs font-medium text-gray-900">
+                Avatar
+              </label>
               
-              <p className="text-sm text-gray-600 text-center">
-                Click the upload icon to add your own photo
-              </p>
+              {/* Current Avatar Preview */}
+              <div className="flex flex-col items-center">
+                <div className="relative mb-2">
+                  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary/10 to-gray-200 flex items-center justify-center overflow-hidden border-2 border-gray-300">
+                    {customAvatarPreview ? (
+                      <img 
+                        src={customAvatarPreview} 
+                        alt="Avatar Preview" 
+                        className="h-full w-full object-cover"
+                      />
+                    ) : selectedAvatar ? (
+                      // Updated path - assuming avatars are in public folder
+                      <img 
+                        src={`/images/avatar/${selectedAvatar}`}
+                        alt="Selected Avatar"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://ui-avatars.com/api/?name=${username || 'User'}&background=4f46e5&color=fff`;
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-gray-400" />
+                    )}
+                  </div>
+                  
+                  {/* Upload Button */}
+                  <label className="absolute bottom-0 right-0 h-6 w-6 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors text-xs">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCustomAvatarUpload}
+                      className="hidden"
+                    />
+                    <Upload className="h-3 w-3 text-white" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Predefined Avatars - Smaller grid */}
+              <div className="grid grid-cols-3 gap-1">
+                {predefinedAvatars.map((avatar) => (
+                  <button
+                    key={avatar}
+                    type="button"
+                    onClick={() => handleAvatarSelect(avatar)}
+                    className={`h-8 w-8 rounded-full overflow-hidden border ${
+                      selectedAvatar === avatar 
+                        ? 'border-primary ring-1 ring-primary/30' 
+                        : 'border-gray-300 hover:border-primary/50'
+                    }`}
+                  >
+                    <img 
+                      src={`/images/avatar/${avatar}`}
+                      alt={`Avatar ${avatar}`}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `https://ui-avatars.com/api/?name=${avatar}&background=4f46e5&color=fff`;
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Predefined Avatars */}
-            <div className="grid grid-cols-5 gap-3">
-              {predefinedAvatars.map((avatar) => (
-                <button
-                  key={avatar}
-                  type="button"
-                  onClick={() => handleAvatarSelect(avatar)}
-                  className={`h-16 w-16 rounded-full overflow-hidden border-2 transition-all ${
-                    selectedAvatar === avatar 
-                      ? 'border-primary ring-2 ring-primary/20' 
-                      : 'border-gray-300 hover:border-primary/50'
-                  }`}
-                >
-                  <img 
-                    src={`/assets/images/avatar/${avatar}`}
-                    alt={`Avatar ${avatar}`}
-                    className="h-full w-full object-cover"
+            {/* Right: Username Section */}
+            <div className="flex-1 space-y-3">
+              <div className="space-y-2">
+                <label htmlFor="username" className="block text-xs font-medium text-gray-900">
+                  Username
+                </label>
+                <div className="relative">
+                  <input
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your username"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+                    maxLength={20}
+                    minLength={3}
+                    required
                   />
-                  {selectedAvatar === avatar && (
-                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                      <Check className="h-5 w-5 text-white" />
-                    </div>
-                  )}
-                </button>
-              ))}
+                  <button
+                    type="button"
+                    onClick={() => setUsername(generateRandomUsername())}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-100 transition-colors"
+                    aria-label="Generate random username"
+                  >
+                    <Dice5 className="h-3.5 w-3.5 text-primary" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  3-20 characters. Letters, numbers, and underscores only.
+                </p>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs">
+                  {error}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1 text-xs py-2"
+                  disabled={isLoading}
+                >
+                  Skip
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 text-xs py-2"
+                  isLoading={isLoading}
+                >
+                  Save
+                </Button>
+              </div>
             </div>
           </div>
-
-          {/* Username Section */}
-          <div className="space-y-3">
-            <label htmlFor="username" className="block text-sm font-medium text-gray-900">
-              Choose a Username
-            </label>
-            <div className="relative">
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
-                maxLength={20}
-                minLength={3}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setUsername(generateRandomUsername())}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                aria-label="Generate random username"
-              >
-                <Dice5 className="h-5 w-5 text-primary" />
-              </button>
-            </div>
-            <p className="text-xs text-gray-500">
-              Username must be 3-20 characters. Letters, numbers, and underscores only.
-            </p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
-              disabled={isLoading}
-            >
-              Skip for Now
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-              isLoading={isLoading}
-            >
-              Complete Setup
-            </Button>
-          </div>
-
-          {/* Note */}
-          <p className="text-xs text-gray-500 text-center">
-            You can always update your profile later from the settings page.
-          </p>
         </form>
       </div>
     </div>

@@ -23,7 +23,7 @@ const PrivateSidebar = ({
 }) => {
     const navItems = [
         {
-            path: "/",
+            path: "/dashboard",
             icon: <Home className="h-5 w-5" />,
             label: "Dashboard"
         },

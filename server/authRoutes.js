@@ -2,25 +2,26 @@
 import express from "express";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Strategy as FacebookStrategy } from "passport-facebook";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { createResponse } from "./helper.js";
 import { getConnection } from "./db.js";
+import fs from "fs";
+import path from "path";
 
 const router = express.Router();
 
-// Database helper function
-async function findOrCreateUser(profile, provider) {
+// Database helper function for Google auth
+async function findOrCreateGoogleUser(profile) {
     const connection = await getConnection();
     try {
         let user;
-        const providerIdField = `${provider}_id`;
         const providerId = profile.id;
+        const email = profile.emails?.[0]?.value || `${profile.id}@google.com`;
 
-        // Check if user exists with provider ID
+        // Check if user exists with Google ID
         const [existingUser] = await connection.query(
-            `SELECT * FROM users WHERE ${providerIdField} = ?`,
+            `SELECT * FROM users WHERE google_id = ?`,
             [providerId]
         );
 
@@ -28,31 +29,43 @@ async function findOrCreateUser(profile, provider) {
             user = existingUser[0];
         } else {
             // Check if user exists with email
-            const email =
-                profile.emails?.[0]?.value || `${profile.id}@${provider}.com`;
             const [usersByEmail] = await connection.query(
                 "SELECT * FROM users WHERE email = ?",
                 [email]
             );
 
             if (usersByEmail.length > 0) {
-                // Update existing user with provider ID
+                // Update existing user with Google ID
                 await connection.query(
-                    `UPDATE users SET ${providerIdField} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                    `UPDATE users SET google_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
                     [providerId, usersByEmail[0].id]
                 );
-                user = { ...usersByEmail[0], [providerIdField]: providerId };
+                user = { ...usersByEmail[0], google_id: providerId };
             } else {
-                // Create new user
+                // Create new user with Google
                 const name =
-                    profile.displayName || profile.name?.givenName || "";
+                    profile.displayName || profile.name?.givenName || "User";
+                const firstName =
+                    profile.name?.givenName || name.split(" ")[0] || "";
+                const lastName =
+                    profile.name?.familyName ||
+                    name.split(" ").slice(1).join(" ") ||
+                    "";
+
+                // Generate username from email
+                const username =
+                    email.split("@")[0] + Math.floor(Math.random() * 1000);
+
                 const [result] = await connection.query(
-                    `INSERT INTO users (email, first_name, last_name, ${providerIdField}, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+                    `INSERT INTO users (email, username, first_name, last_name, google_id, avatar_url, created_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
                     [
                         email,
-                        name.split(" ")[0] || "",
-                        name.split(" ").slice(1).join(" ") || "",
-                        providerId
+                        username,
+                        firstName,
+                        lastName,
+                        providerId,
+                        profile.photos?.[0]?.value || "avatarDefault.png"
                     ]
                 );
 
@@ -80,31 +93,10 @@ passport.use(
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
-                const user = await findOrCreateUser(profile, "google");
+                const user = await findOrCreateGoogleUser(profile);
                 return done(null, user);
             } catch (error) {
                 console.error("Google auth error:", error);
-                return done(error, null);
-            }
-        }
-    )
-);
-
-// Passport Facebook Strategy
-passport.use(
-    new FacebookStrategy(
-        {
-            clientID: process.env.FACEBOOK_APP_ID,
-            clientSecret: process.env.FACEBOOK_APP_SECRET,
-            callbackURL: process.env.FACEBOOK_CALLBACK_URL,
-            profileFields: ["id", "emails", "name", "displayName"]
-        },
-        async (accessToken, refreshToken, profile, done) => {
-            try {
-                const user = await findOrCreateUser(profile, "facebook");
-                return done(null, user);
-            } catch (error) {
-                console.error("Facebook auth error:", error);
                 return done(error, null);
             }
         }
@@ -130,7 +122,7 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-// Register route
+// Register route (updated for new structure)
 router.post("/register", async (req, res) => {
     try {
         const { email, password, first_name, last_name } = req.body;
@@ -185,16 +177,16 @@ router.post("/register", async (req, res) => {
         // Generate username from email
         const username = email.split("@")[0] + Math.floor(Math.random() * 1000);
 
-        // Insert new user
+        // Insert new user with new structure
         const [result] = await connection.query(
             `INSERT INTO users (email, username, first_name, last_name, password_hash, created_at) 
-       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
             [email, username, first_name || "", last_name || "", password_hash]
         );
 
         // Get the created user
         const [newUser] = await connection.query(
-            "SELECT id, email, username, first_name, last_name FROM users WHERE id = ?",
+            "SELECT id, email, username, first_name, last_name, avatar_url FROM users WHERE id = ?",
             [result.insertId]
         );
 
@@ -219,7 +211,7 @@ router.post("/register", async (req, res) => {
     }
 });
 
-// Login route
+// Login route (updated for new structure)
 router.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -254,6 +246,15 @@ router.post("/login", async (req, res) => {
         }
 
         const user = users[0];
+
+        // Check if user has password (Google users won't have one)
+        if (!user.password_hash) {
+            return res
+                .status(401)
+                .json(
+                    createResponse(false, "Please login with Google", null, 401)
+                );
+        }
 
         // Check password
         const isValidPassword = await bcrypt.compare(
@@ -293,8 +294,13 @@ router.post("/login", async (req, res) => {
 // Profile setup route
 router.post("/setup-profile", async (req, res) => {
     try {
+        console.log("Setup profile request received:", req.body);
+        console.log("Files:", req.files);
+
+        // For FormData, username comes from req.body
+        // avatar comes from either req.body.avatarType or req.files.avatar
         const { username } = req.body;
-        let avatar = "avatarDefault.png";
+        const avatarType = req.body.avatarType;
 
         if (!username) {
             return res
@@ -302,12 +308,27 @@ router.post("/setup-profile", async (req, res) => {
                 .json(createResponse(false, "Username is required", null, 400));
         }
 
-        // Check username availability
+        // Get user from JWT token
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1];
+
+        if (!token) {
+            return res
+                .status(401)
+                .json(
+                    createResponse(false, "Authentication required", null, 401)
+                );
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.user.id;
+
         const connection = await getConnection();
 
+        // Check username availability
         const [existingUser] = await connection.query(
             "SELECT id FROM users WHERE username = ? AND id != ?",
-            [username, req.user.id]
+            [username, userId]
         );
 
         if (existingUser.length > 0) {
@@ -319,13 +340,16 @@ router.post("/setup-profile", async (req, res) => {
                 );
         }
 
-        // Handle avatar (in real implementation, you'd handle file upload)
-        if (req.body.avatarType) {
-            avatar = req.body.avatarType;
+        // Handle avatar
+        let avatarUrl = "avatarDefault.png";
+
+        if (avatarType) {
+            // Use predefined avatar
+            avatarUrl = avatarType;
         } else if (req.files && req.files.avatar) {
-            // Handle file upload - save file and get path
+            // Handle file upload
             const avatarFile = req.files.avatar;
-            const fileName = `avatar_${req.user.id}_${Date.now()}${path.extname(
+            const fileName = `avatar_${userId}_${Date.now()}${path.extname(
                 avatarFile.name
             )}`;
             const uploadPath = path.join(
@@ -334,26 +358,33 @@ router.post("/setup-profile", async (req, res) => {
                 fileName
             );
 
+            // Create uploads directory if it doesn't exist
+            const uploadDir = path.join(__dirname, "../uploads/avatars");
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            // Move the file
             await avatarFile.mv(uploadPath);
-            avatar = `/uploads/avatars/${fileName}`;
+            avatarUrl = `/uploads/avatars/${fileName}`;
         }
 
         // Update user profile
         await connection.query(
-            "UPDATE users SET username = ?, avatar = ?, profile_setup_completed = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            [username, avatar, req.user.id]
+            "UPDATE users SET username = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            [username, avatarUrl, userId]
         );
 
         // Get updated user
         const [updatedUser] = await connection.query(
-            "SELECT id, email, username, first_name, last_name, avatar, profile_setup_completed FROM users WHERE id = ?",
-            [req.user.id]
+            "SELECT id, email, username, first_name, last_name, avatar_url FROM users WHERE id = ?",
+            [userId]
         );
 
         await connection.release();
 
         // Generate new token with updated user info
-        const token = jwt.sign(
+        const newToken = jwt.sign(
             { user: updatedUser[0] },
             process.env.JWT_SECRET,
             { expiresIn: "7d" }
@@ -361,7 +392,7 @@ router.post("/setup-profile", async (req, res) => {
 
         res.json(
             createResponse(true, "Profile setup completed", {
-                token,
+                token: newToken,
                 user: updatedUser[0]
             })
         );
@@ -372,6 +403,7 @@ router.post("/setup-profile", async (req, res) => {
         );
     }
 });
+
 // Google authentication routes
 router.get(
     "/google",
@@ -394,32 +426,8 @@ router.get(
     }
 );
 
-// Facebook authentication routes
-router.get(
-    "/facebook",
-    passport.authenticate("facebook", { scope: ["email"] })
-);
-
-router.get(
-    "/facebook/callback",
-    passport.authenticate("facebook", { failureRedirect: "/login" }),
-    (req, res) => {
-        const { password_hash, ...userWithoutPassword } = req.user;
-        const token = jwt.sign(
-            { user: userWithoutPassword },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-        );
-
-        // Redirect to frontend with token
-        res.redirect(`http://localhost:5173/auth/callback?token=${token}`);
-    }
-);
-
 // Protected route example
 router.get("/profile", (req, res) => {
-    // This should use the authenticateToken middleware
-    // For now, using a simple check
     const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1];
 
